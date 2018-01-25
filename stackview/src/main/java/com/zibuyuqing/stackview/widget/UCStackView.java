@@ -25,7 +25,6 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 import android.widget.OverScroller;
-import android.widget.Toast;
 
 import com.zibuyuqing.stackview.R;
 import com.zibuyuqing.stackview.SwipeHelper;
@@ -58,19 +57,19 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
     private int mDuration;
     private OverScroller mScroller;
     private VelocityTracker mVelocityTracker;
-    private int mTouchSlop;
-    private int mMinimumVelocity;
-    private int mMaximumVelocity;
+    private int mTouchSlop; //滑动距离
+    private int mMinimumVelocity; //最大滑动速度
+    private int mMaximumVelocity; // 最小滑动速度
     private int mActivePointerId;
     private boolean mScrollEnable;
     private Context mContext;
     private Rect mChildTouchRect[]; // 用于存储view 的边际（点击范围）
-    private int mScreenWidth;
-    private int mScreenHeight;
+    private int mScreenWidth; // 屏幕宽度
+    private int mScreenHeight; // 屏幕高度
     private float mViewMinTop;
     private float mViewMaxTop;
-    private float mViewMinScale;
-    private float mViewMaxScale;
+    private float mViewMinScale; // 最小缩放幅度
+    private float mViewMaxScale; // 最大缩放幅度
     private float mViewMinAlpha;
     private float mViewMaxAlpha;
     private float mMinScrollP;
@@ -86,7 +85,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
     private float mInitialMotionX;
     private float mLastMotionX;
     private float mInitialMotionY;
-    private boolean mIsScrolling;
+    private boolean mIsScrolling; //是否滑动
     private boolean mIsOverScroll = false;
     ObjectAnimator mScrollAnimator;
     private int mActivePager; // 标记横向滑动时的拖拽页
@@ -151,6 +150,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
         // 如果首次构建view的时候我们需要先初始化滑动进度
+        Log.i(TAG, "onLayout");
         if(mIsFirstLayout) {
             calculateInitialScrollP();
             mIsFirstLayout = false;
@@ -481,14 +481,14 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
         mMaxScrollP = BASE_MAX_SCROLL_P;
         mMinPositiveScrollP = mMinScrollP + PROGRESS_STEP * 0.25f;
         mMaxPositiveScrollP = mMaxScrollP - PROGRESS_STEP * 0.75f;
-        Log.e(TAG,"updateScrollProgressRange ::mMinScrollP =:" + mMinScrollP +",mMaxScrollP =:" + mMaxScrollP);
+        Log.i(TAG,"updateScrollProgressRange ::mMinScrollP =:" + mMinScrollP +",mMaxScrollP =:" + mMaxScrollP);
     }
 
     /**
      * 初始化滑动进度
      */
     private void calculateInitialScrollP(){
-        Log.e(TAG,"calculateInitialScrollP:: ");
+        Log.i(TAG,"calculateInitialScrollP ");
         updateScrollProgressRange();
         mScrollProgress = PROGRESS_START - mSelectPager * PROGRESS_STEP;
         mTotalMotionY = mScrollProgress * mViewMaxTop;
@@ -651,8 +651,11 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                     doScroll();
                 }
 
+                Log.i(TAG, "mTotalMotionY:"+mTotalMotionY);
                 mLastMotionX = x;
                 mLastMotionY = y;
+
+
                 break;
             }
             case MotionEvent.ACTION_UP: {
@@ -703,6 +706,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
         }
         mIsOverScroll = false;
         mScrollProgress = getScrollRate();
+        Log.i(TAG, "mScrollProgress:"+mScrollProgress+" mTotalMotionY:"+mTotalMotionY);
         mIsOverScroll = (mScrollProgress > mMaxScrollP || mScrollProgress < mMinScrollP);
         return mIsOverScroll;
     }
@@ -814,8 +818,8 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
 
     @Override
     public void computeScroll() {
-        Log.e(TAG, "computeScroll :: mIsOverScroll :" + mIsOverScroll);
         if (mScroller.computeScrollOffset()) {
+            Log.e(TAG, "computeScroll :: mIsOverScroll :" + mIsOverScroll+" "+mTotalMotionY);
             if(mIsOverScroll){
                 // 如果 overscroll 滑动到指定位置
                 scrollToPositivePosition();
