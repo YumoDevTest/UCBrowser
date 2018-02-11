@@ -52,7 +52,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
     public static final float DEFAULT_VIEW_MAX_SCALE = 0.9f;
     public static final float DEFAULT_VIEW_MIN_SCALE = 0.7f;
     private StackAdapter mStackAdapter;
-    private int mSelectPager = 0;
+    private int mSelectTab = 0;
     private List<ViewHolder> mViewHolders;
     private int mDuration;
     private OverScroller mScroller;
@@ -96,6 +96,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
     private View mTargetView;
     private boolean mIsAnimating = false;
     private OnChildDismissedListener mListener;
+    private boolean mLockLayout = false;
     public UCStackView(@NonNull Context context) {
         this(context, null);
     }
@@ -164,6 +165,9 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
      * 这个是核心方法，在这里我们根据每个view的位置，设置大小，transY ，以及点击范围
      */
     private void layoutChildren() {
+        if(mLockLayout){
+            return;
+        }
         int childCount = getChildCount();
         float progress;
         float transY;
@@ -312,19 +316,19 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
 
     /**
      * 当点击某一页面时，代表选择了这个页面，然后把UCRootView动画展示出来
-     * @param key 页面的ID
+     * @param index 页面的ID
      */
-    public void selectPager(int key,Runnable onComplete){
-        mSelectPager = key;
-        animateShow(mSelectPager, mPreviousView, mTargetView, false,onComplete);
+    public void selectTab(int index, Runnable onComplete){
+        mSelectTab = index;
+        animateShow(mSelectTab, mPreviousView, mTargetView, false,onComplete);
     }
 
     /**
      * 点击“X”按钮时关闭这个页面
-     * @param key
+     * @param index
      */
-    public void closePager(int key){
-        mSwipeHelper.dismissChildByClick(getChildAt(key));
+    public void closeTab(int index){
+        mSwipeHelper.dismissChildByClick(getChildAt(index));
         mIsAnimating = true;
     }
     /**
@@ -333,7 +337,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
      */
     private float calculateDamping(){
         float damping = (1.0f - Math.abs(mScrollProgress - getPositiveScrollP()) * 5);
-        Log.e(TAG,"calculateDamping :: damping = :" + damping);
+        Log.d(TAG,"calculateDamping :: damping = :" + damping);
         return damping;
     }
 
@@ -364,10 +368,11 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
         if(mIsAnimating){
             return;
         }
-        int duration = 400;
-        int startDelay = 200;
-        mSelectPager = selectPager;
-        Log.e(TAG,"animateShow :: selectPager =:" + selectPager);
+        mIsAnimating = true;
+        int duration = 350;
+        int startDelay = 40;
+        mSelectTab = selectPager;
+        Log.e(TAG,"animateShow :: selectTab =:" + selectPager);
         mPreviousView = from;
         mTargetView = to;
         //如果是显示这个页面，先要更新滑动的进度然后获取selected view的各种属性才是我们想要的
@@ -442,18 +447,20 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                 if(onCompletedRunnable != null){
                     onCompletedRunnable.run();
                 }
+                mLockLayout = false;
+                layoutChildren();
                 mIsAnimating = false;
             }
 
             @Override
             public void onAnimationStart(Animator animation) {
+                mLockLayout = true;
                 if(show) {
                     mPreviousView.setVisibility(GONE);
                 }
                 mTargetView.setVisibility(VISIBLE);
                 selectChild.setVisibility(VISIBLE);
                 to.setAlpha(1.0f);
-                mIsAnimating = true;
             }
         });
         if(show) {
@@ -482,6 +489,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
         mMinPositiveScrollP = mMinScrollP + PROGRESS_STEP * 0.25f;
         mMaxPositiveScrollP = mMaxScrollP - PROGRESS_STEP * 0.75f;
         Log.i(TAG,"updateScrollProgressRange ::mMinScrollP =:" + mMinScrollP +",mMaxScrollP =:" + mMaxScrollP);
+
     }
 
     /**
@@ -490,7 +498,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
     private void calculateInitialScrollP(){
         Log.i(TAG,"calculateInitialScrollP ");
         updateScrollProgressRange();
-        mScrollProgress = PROGRESS_START - mSelectPager * PROGRESS_STEP;
+        mScrollProgress = PROGRESS_START - mSelectTab * PROGRESS_STEP;
         mTotalMotionY = mScrollProgress * mViewMaxTop;
     }
 
@@ -548,7 +556,6 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
             }
             case MotionEvent.ACTION_MOVE: {
                 if (mActivePointerId == INVALID_POINTER) break;
-                Log.e(TAG, "onInterceptTouchEvent :: ACTION_MOVE = ");
                 // Initialize the velocity tracker if necessary
                 initVelocityTrackerIfNotExists();
                 mVelocityTracker.addMovement(ev);
@@ -587,7 +594,10 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                 break;
             }
         }
-        return wasScrolling || mIsScrolling;
+        if(wasScrolling || mIsScrolling){
+            return true;
+        }
+        return super.onInterceptTouchEvent(ev);
     }
 
     @Override
@@ -626,7 +636,6 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
             }
             case MotionEvent.ACTION_MOVE: {
                 if (mActivePointerId == INVALID_POINTER) break;
-                Log.e(TAG, "onTouchEvent :: ACTION_MOVE = ");
                 mVelocityTracker.addMovement(ev);
 
                 int activePointerIndex = ev.findPointerIndex(mActivePointerId);
@@ -670,7 +679,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                 }
                 // 重置滑动状态
                 resetTouchState();
-                Log.e(TAG, "onTouchEvent :: mIsOverScroll =:" + mIsOverScroll);
+                Log.e(TAG, "onTouchEvent ACTION_UP :: mIsOverScroll =:" + mIsOverScroll);
                 break;
             }
             // 更新触控信息
@@ -693,7 +702,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                 break;
             }
         }
-        return true;
+        return super.onTouchEvent(ev);
     }
 
     /**
@@ -850,19 +859,44 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                 Integer.MAX_VALUE);
         invalidate();
     }
+    private boolean mIsDisallowIntercept = false;
+    @Override
+    public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+        // keep the info about if the innerViews do
+        // requestDisallowInterceptTouchEvent
+        mIsDisallowIntercept = disallowIntercept;
+        super.requestDisallowInterceptTouchEvent(disallowIntercept);
+    }
 
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        // the incorrect array size will only happen in the multi-touch
+        // scenario.
+        if (ev.getPointerCount() > 1 && mIsDisallowIntercept) {
+            requestDisallowInterceptTouchEvent(false);
+            boolean handled = super.dispatchTouchEvent(ev);
+            requestDisallowInterceptTouchEvent(true);
+            return handled;
+        } else {
+            return super.dispatchTouchEvent(ev);
+        }
+    }
     /**
      * 更具手指的位置判断触摸的是哪个view
      * @param event
      * @return
      */
     private View findChildAtPosition(MotionEvent event) {
+        if(event.getPointerCount() < 1){
+            return null;
+        }
         int activePointId = event.getPointerId(0);
         if(activePointId == INVALID_POINTER){
             return null;
         }
-        int x = (int) event.getX(activePointId);
-        int y = (int) event.getY(activePointId);
+        int activePointerIndex = event.findPointerIndex(activePointId);
+        int x = (int) event.getX(activePointerIndex);
+        int y = (int) event.getY(activePointerIndex);
         int count = getChildCount();
         for (int i = count - 1; i >= 0; i --) {
             if (mChildTouchRect[i].contains(x, y)) {
@@ -872,10 +906,14 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
         }
         return null;
     }
-
+    public View getSelectedChild(){
+        if(mSelectTab < 0 || mSelectTab >= getChildCount()){
+            return null;
+        }
+        return getChildAt(mSelectTab);
+    }
     @Override
     public View getChildAtPosition(MotionEvent ev) {
-
         return findChildAtPosition(ev);
     }
 
@@ -886,14 +924,17 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
 
     @Override
     public void onBeginDrag(View v) {
-        Log.e(TAG, "onBeginDrag :: v =:" + v);
+        Log.d(TAG, "onBeginDrag :: v =:" + v);
     }
 
     @Override
     public void onSwipeChanged(View v, float delta) {
+        if(v == null){
+            return;
+        }
         float alpha = 1.f - Math.abs(delta) / mScreenWidth * 0.5f;
         alphaView(alpha, v);
-        Log.e(TAG, "onSwipeChanged :: delta =:" + delta);
+        Log.d(TAG, "onSwipeChanged :: delta =:" + delta);
     }
 
     @Override
@@ -908,7 +949,6 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
             newProgress = curProgress  + PROGRESS_STEP;
             mLayoutState = LAYOUT_PRE_ACTIVE;
         }
-
         animateScroll(curProgress, newProgress, new Runnable() {
             @Override
             public void run() {
@@ -921,6 +961,7 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
                 if(mListener != null){
                     mListener.onChildDismissed(mActivePager);
                 }
+                Log.e(TAG,"onChildDismissed ---------------------- mActivePager =:" + mActivePager);
                 mActivePager = INVALID_POSITION;
                 mIsAnimating = false;
             }
@@ -929,12 +970,17 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
 
     @Override
     public void onSnapBackCompleted(View v) {
-
+        mIsAnimating = false;
     }
 
     @Override
     public void onDragCancelled(View v) {
+        mIsAnimating = false;
+    }
 
+    @Override
+    public void onChildFling(View v) {
+        mIsAnimating = true;
     }
 
     public Point getScreenSize(Context context) {
@@ -943,10 +989,6 @@ public class UCStackView extends FrameLayout implements SwipeHelper.Callback {
         Point realSize = new Point();
         display.getRealSize(realSize);
         return realSize;
-    }
-
-    public int getSelectPager() {
-        return mSelectPager;
     }
 
     public static abstract class Adapter<VH extends ViewHolder> {
